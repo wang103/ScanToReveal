@@ -1,0 +1,24 @@
+<h1>New Message</h1>
+
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+
+<form action="{% url 'stvcore:submit_new_msg' %}" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+
+Audio file:<br>
+<input type="file" name="audio_file">
+<br>
+Message text:<br>
+<input type="text" name="msg_text" maxlength="256">
+<br>
+Image file:<br>
+<input type="file" name="image_file">
+<br>
+
+<br>
+Creator:<br>
+<input type="text" name="creator">
+<br>
+
+<input type="submit" value="Submit">
+</form>

@@ -1,0 +1,10 @@
+# Python
+*.pyc
+
+# Vim temp file
+*.swp
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
