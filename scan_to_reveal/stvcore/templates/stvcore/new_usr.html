@@ -1,0 +1,28 @@
+<h1>New User</h1>
+
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+
+<form action="{% url 'stvcore:register_new_usr' %}" method="post">
+{% csrf_token %}
+
+Username:<br>
+<input type="text" name="username">
+<br>
+Password:<br>
+<input type="password" name="password">
+<br>
+Confirm password:<br>
+<input type="password" name="password_copy">
+<br>
+Email:<br>
+<input type="email" name="email">
+<br>
+First name:<br>
+<input type="text" name="first_name">
+<br>
+Last name:<br>
+<input type="text" name="last_name">
+<br>
+
+<input type="submit" value="Submit">
+</form>

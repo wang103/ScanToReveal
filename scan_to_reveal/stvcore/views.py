@@ -1,44 +1,102 @@
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 import random
+import utils
 
 from .models import Message
 
 
-def user_info(request, username):
+def login_usr(request):
    response = {}
-   try:
-      user = User.objects.get(username=username)
-   except (User.DoesNotExist):
+
+   username = request.POST['username']
+   password = request.POST['password']
+
+   user = authenticate(username=username, password=password)
+
+   if user is None:
       response['success'] = False
+      response['ec'] = utils.EC_INVALID_CREDS
       return JsonResponse(response)
 
-   user_info = {}
-   user_info['username'] = user.username
-   user_info['id'] = user.id
-   user_info['last_login'] = user.last_login
-   user_info['is_superuser'] = user.is_superuser
-   user_info['first_name'] = user.first_name
-   user_info['last_name'] = user.last_name
-   user_info['email'] = user.email
-   user_info['date_joined'] = user.date_joined
+   if not user.is_active:
+      response['success'] = False
+      response['ec'] = utils.EC_ACCOUNT_DISABLED
+      return JsonResponse(response)
 
-   response['user_info'] = user_info
+   login(request, user)
+
+   usr_detail = get_usr_detail_in_dict(user)
+
+   response['user_info'] = usr_detail
    response['success'] = True
 
    return JsonResponse(response)
 
 
-def user_msgs(request, username):
+def logout_usr(request):
    response = {}
-   try:
-      user = User.objects.get(username=username)
-   except (User.DoesNotExist):
+   logout(request)
+   response['success'] = True
+   return JsonResponse(response)
+
+
+def check_login(request):
+   response = {}
+   response['is_logged_in'] = request.user.is_authenticated()
+   response['success'] = True
+   return JsonResponse(response)
+
+
+# Private helper method.
+def get_usr_detail_in_dict(usr):
+   usr_detail = {}
+
+   usr_detail['id'] = usr.id
+   usr_detail['username'] = usr.username
+   usr_detail['last_login'] = usr.last_login
+   usr_detail['is_superuser'] = usr.is_superuser
+   usr_detail['email'] = usr.email
+   usr_detail['first_name'] = usr.first_name
+   usr_detail['last_name'] = usr.last_name
+   usr_detail['date_joined'] = usr.date_joined
+
+   return usr_detail
+
+
+def user_info(request):
+   response = {}
+
+   user = request.user
+
+   if not user.is_authenticated():
       response['success'] = False
+      response['ec'] = utils.EC_NOT_LOGGED_IN
+      return JsonResponse(response)
+
+   usr_detail = get_usr_detail_in_dict(user)
+
+   response['user_info'] = usr_detail
+   response['success'] = True
+
+   return JsonResponse(response)
+
+
+def user_msgs(request):
+   response = {}
+
+   user = request.user
+
+   if not user.is_authenticated():
+      response['success'] = False
+      response['ec'] = utils.EC_NOT_LOGGED_IN
       return JsonResponse(response)
 
    msg_list = Message.objects.filter(creator=user).order_by('-create_date')
@@ -56,6 +114,7 @@ def user_msgs(request, username):
    return JsonResponse(response)
 
 
+# Private helper method.
 def get_msg_detail_in_dict(msg):
    msg_detail = {}
 
@@ -99,10 +158,12 @@ def new_msg(request):
 
 def submit_new_msg(request):
    response = {}
-   try:
-      creator = User.objects.get(username=request.POST['creator'])
-   except (KeyError, User.DoesNotExist):
-      response['success']= False
+
+   user = request.user
+
+   if not user.is_authenticated():
+      response['success'] = False
+      response['ec'] = utils.EC_NOT_LOGGED_IN
       return JsonResponse(response)
 
    try:
@@ -120,6 +181,11 @@ def submit_new_msg(request):
    except (KeyError):
       image_file = None
 
+   if not audio_file and not msg_text and not image_file:
+      response['success'] = False
+      response['ec'] = utils.EC_EMPTY_MESSAGE
+      return JsonResponse(response)
+
    create_date = timezone.now()
    last_access_date = None
    access_count = 0
@@ -133,7 +199,7 @@ def submit_new_msg(request):
 
    # Create the new message and save it to the database.
    msg = Message(audio_file=audio_file, msg_text=msg_text, image_file=image_file,
-                 qr_str=qr_str, creator=creator, create_date=create_date,
+                 qr_str=qr_str, creator=user, create_date=create_date,
                  last_access_date=last_access_date, access_count = access_count)
 
    save_is_successful = False
@@ -150,6 +216,88 @@ def submit_new_msg(request):
    msg_detail = get_msg_detail_in_dict(msg)
 
    response['msg_detail'] = msg_detail
+   response['success'] = True
+ 
+   return JsonResponse(response)
+
+
+def new_usr(request):
+   context = {}
+   template = 'stvcore/new_usr.html'
+
+   return render(request, template, context)
+
+
+def register_new_usr(request):
+   response = {}
+
+   try:
+      username = request.POST['username']
+   except (KeyError):
+      username = None
+
+   if not username:
+      response['success'] = False
+      response['ec'] = utils.EC_INVALID_USERNAME
+      return JsonResponse(response)
+  
+   try:
+      password = request.POST['password']
+   except (KeyError):
+      password = None
+
+   if not password:
+      response['success'] = False
+      response['ec'] = utils.EC_INVALID_PASSWORD
+      return JsonResponse(response)
+
+   try:
+      password_copy = request.POST['password_copy']
+   except (KeyError):
+      password_copy = None
+
+   if password != password_copy:
+      response['success'] = False
+      response['ec'] = utils.EC_PASSWORDS_MISMATCH
+      return JsonResponse(response)
+
+   try:
+      email = request.POST['email']
+   except (KeyError):
+      email = None
+
+   try:
+      validate_email(email)
+   except (ValidationError):
+      response['success'] = False
+      response['ec'] = utils.EC_INVALID_EMAIL
+      return JsonResponse(response)
+
+   try:
+      usr = User.objects.create_user(username, email, password)
+   except (IntegrityError):
+      response['success'] = False
+      response['ec'] = utils.EC_USERNAME_EXISTS
+      return JsonResponse(response)
+
+   try:
+      first_name = request.POST['first_name']
+   except (KeyError):
+      first_name = ''
+
+   try:
+      last_name = request.POST['last_name']
+   except (KeyError):
+      last_name = ''
+
+   usr.first_name = first_name
+   usr.last_name = last_name
+
+   usr.save()
+
+   usr_detail = get_usr_detail_in_dict(usr)
+
+   response['usr_detail'] = usr_detail
    response['success'] = True
  
    return JsonResponse(response)
