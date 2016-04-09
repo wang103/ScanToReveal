@@ -141,6 +141,11 @@ def msg_detail(request, msg_qr_str):
       response['success'] = False
       return JsonResponse(response)
 
+   # Update meta info.
+   msg.last_access_date = timezone.now()
+   msg.access_count += 1
+   msg.save()
+
    msg_detail = get_msg_detail_in_dict(msg)
 
    response['msg_detail'] = msg_detail
@@ -200,7 +205,7 @@ def submit_new_msg(request):
    # Create the new message and save it to the database.
    msg = Message(audio_file=audio_file, msg_text=msg_text, image_file=image_file,
                  qr_str=qr_str, creator=user, create_date=create_date,
-                 last_access_date=last_access_date, access_count = access_count)
+                 last_access_date=last_access_date, access_count=access_count)
 
    save_is_successful = False
    while not save_is_successful:
