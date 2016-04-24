@@ -14,5 +14,6 @@ urlpatterns = [
    url(r'^submit_new_msg/$',             views.submit_new_msg,   name='submit_new_msg'),
    url(r'^new_usr/$',                    views.new_usr,          name='new_usr'),
    url(r'^register_new_usr/$',           views.register_new_usr, name='register_new_usr'),
+   url(r'^support/$',                    views.support,          name='support'),
 ]
 

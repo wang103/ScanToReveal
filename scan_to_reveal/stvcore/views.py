@@ -307,3 +307,10 @@ def register_new_usr(request):
  
    return JsonResponse(response)
 
+
+def support(request):
+   context = {}
+   template = 'stvcore/support.html'
+
+   return render(request, template, context)
+
